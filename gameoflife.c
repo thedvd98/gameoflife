@@ -8,6 +8,7 @@
 #define RECT_HEIGHT 10
 
 #define DELAY 100
+#define TICK 2
 
 #define CELL_DEAD 0
 #define CELL_ALIVE 1
@@ -16,6 +17,22 @@
 
 SDL_Window *win;
 SDL_Renderer *renderer;
+
+int getCellStatus(int **grid, int nw, int nh, int i, int j){
+	if(i < 0 || i >= nw) {
+		return CELL_DEAD;
+	}
+	if(j < 0 || j >= nh) {
+		return CELL_DEAD;
+	}
+	if (grid[i][j] == CELL_ALIVE || grid[i][j] == CELL_TO_DIE) {
+		return CELL_ALIVE;
+	}
+
+	return CELL_DEAD;
+}
+
+
 
 void drawRect(int x, int y) {
 	SDL_Rect rect = {x, y, RECT_WIDTH, RECT_HEIGHT};
@@ -36,7 +53,7 @@ void drawGrid(int **grid, int nw, int nh) {
 
 	for (int i = 0; i < nw; i++) {
 		for(int j = 0; j < nh; j++) {
-			if(grid[i][j] == CELL_ALIVE){
+			if(getCellStatus(grid, nw, nh, i, j) == CELL_ALIVE){
 				drawRect(i*mult_x, j*mult_y);
 			}
 		}
@@ -50,8 +67,11 @@ void clicked(int **grid, int x, int y) {
 	j = y/RECT_HEIGHT;
 
 	printf("Clicked left [%d, %d] at cell -> [%d, %d]\n", x, y, i, j);
-	grid[i][j] = CELL_ALIVE;
-
+	if (grid[i][j] == CELL_ALIVE){
+		grid[i][j] = CELL_DEAD;
+	} else {
+		grid[i][j] = CELL_ALIVE;
+	}
 }
 
 void grid_init(int **grid, int nw, int nh) {
@@ -69,22 +89,6 @@ void copyGrid(int **src_grid, int **dst_grid, int nw, int nh) {
 		}
 	}
 }
-
-int getCellStatus(int **grid, int nw, int nh, int i, int j){
-
-	if(i < 0 || i >= nw) {
-		return CELL_DEAD;
-	}
-	if(j < 0 || j >= nh) {
-		return CELL_DEAD;
-	}
-	if (grid[i][j] == CELL_ALIVE || grid[i][j] == CELL_TO_DIE) {
-		return CELL_ALIVE;
-	}
-
-	return CELL_DEAD;
-}
-
 
 void howManyLiveCellsAround(int **grid, int nw, int nh, int i, int j) {
 	int n_alive = 0;
@@ -124,10 +128,12 @@ void howManyLiveCellsAround(int **grid, int nw, int nh, int i, int j) {
 void applyRules(int **grid, int nw, int nh) {
 	for (int i = 0; i < nw; i++) {
 		for(int j = 0; j < nh; j++) {
-			if (grid[i][j] == CELL_TO_DIE)
+			if (grid[i][j] == CELL_TO_DIE) {
 				grid[i][j] = CELL_DEAD;
-			if (grid[i][j] == CELL_TO_RESSURECT)
+			}
+			else if (grid[i][j] == CELL_TO_RESSURECT) {
 				grid[i][j] = CELL_ALIVE;
+			}
 		}
 	}
 	for (int i = 0; i < nw; i++) {
@@ -142,7 +148,8 @@ void gameLoop() {
 
 	SDL_Event event;
 	int continua = 1;
-	int gamePaused = 0;
+	int gameResume = 0;
+	int tick = 0;
 
 	int nw = WIN_WIDTH / 2;
 	int nh = WIN_HEIGHT / 2;
@@ -174,8 +181,7 @@ void gameLoop() {
 						case SDLK_q:
 							continua = 0;
 						case SDLK_SPACE:
-							gamePaused = !gamePaused;
-							printf("Key clicked %d\n", gamePaused);
+							gameResume = !gameResume;
 							break;
 						case SDLK_c:
 							grid_init(grid, nw, nh);
@@ -186,8 +192,9 @@ void gameLoop() {
 			}
 		}
 
-		if(gamePaused) {
+		if(gameResume && tick > TICK) {
 			applyRules(grid, nw, nh);
+			tick = 0;
 		}
 
 		SDL_SetRenderDrawColor( renderer, 0, 0, 0, 0);
@@ -197,6 +204,7 @@ void gameLoop() {
 
 		SDL_RenderPresent(renderer);
 		SDL_Delay(DELAY);
+		tick++;
 	}
 
 	for (int i = 0; i < nw; i++)
