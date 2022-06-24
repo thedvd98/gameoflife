@@ -12,11 +12,10 @@
 #define CELL_DEAD 0
 #define CELL_ALIVE 1
 #define CELL_TO_DIE 2
+#define CELL_TO_RESSURECT 3
 
 SDL_Window *win;
 SDL_Renderer *renderer;
-
-
 
 void drawRect(int x, int y) {
 	SDL_Rect rect = {x, y, RECT_WIDTH, RECT_HEIGHT};
@@ -63,6 +62,14 @@ void grid_init(int **grid, int nw, int nh) {
 	}
 }
 
+void copyGrid(int **src_grid, int **dst_grid, int nw, int nh) {
+	for (int i = 0; i < nw; i++) {
+		for (int j = 0; j < nh; j++) {
+			dst_grid[i][j] = src_grid[i][j];
+		}
+	}
+}
+
 int getCellStatus(int **grid, int nw, int nh, int i, int j){
 
 	if(i < 0 || i >= nw) {
@@ -71,7 +78,7 @@ int getCellStatus(int **grid, int nw, int nh, int i, int j){
 	if(j < 0 || j >= nh) {
 		return CELL_DEAD;
 	}
-	if (grid[i][j] >= CELL_ALIVE) {
+	if (grid[i][j] == CELL_ALIVE || grid[i][j] == CELL_TO_DIE) {
 		return CELL_ALIVE;
 	}
 
@@ -90,23 +97,46 @@ void howManyLiveCellsAround(int **grid, int nw, int nh, int i, int j) {
 	n_alive += getCellStatus(grid, nw, nh, i-1, j+1);
 	n_alive += getCellStatus(grid, nw, nh, i+1, j-1);
 
-	if (grid[i][j] == CELL_TO_DIE) {
-		grid[i][j] = CELL_DEAD;
-	}
-	if (grid[i][j] == CELL_DEAD && n_alive == 3) {
-		grid[i][j] = CELL_ALIVE;
-	} else if (grid[i][j] == CELL_ALIVE && n_alive < 2 && n_alive > 3) {
-		grid[i][j] = CELL_TO_DIE;
+	switch(getCellStatus(grid, nw, nh, i, j)) {
+		case CELL_ALIVE:
+			if (n_alive < 2){
+				grid[i][j] = CELL_TO_DIE;
+				return;
+			} else if (n_alive > 3) {
+				grid[i][j] = CELL_TO_DIE;
+				return;
+			} else {
+				grid[i][j] = CELL_ALIVE;
+			}
+			break;
+		case CELL_DEAD:
+			if(n_alive == 3) {
+				grid[i][j] = CELL_TO_RESSURECT;
+			}
+			return;
+			break;
+		default:
+			grid[i][j] = CELL_TO_DIE;
+			break;
 	}
 }
 
 void applyRules(int **grid, int nw, int nh) {
 	for (int i = 0; i < nw; i++) {
 		for(int j = 0; j < nh; j++) {
+			if (grid[i][j] == CELL_TO_DIE)
+				grid[i][j] = CELL_DEAD;
+			if (grid[i][j] == CELL_TO_RESSURECT)
+				grid[i][j] = CELL_ALIVE;
+		}
+	}
+	for (int i = 0; i < nw; i++) {
+		for(int j = 0; j < nh; j++) {
 			howManyLiveCellsAround(grid, nw, nh, i, j);
 		}
 	}
 }
+
 
 void gameLoop() {
 
